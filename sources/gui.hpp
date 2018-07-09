@@ -20,7 +20,7 @@
 #ifndef GUI_HPP
 #define GUI_HPP
 
-class GuiWindow : public QWidget
+class MainWindow : public QWidget
 {
     Q_OBJECT
 
@@ -45,6 +45,8 @@ private:
     }
 
 public:
+    static constexpr qreal y_axis_range_multiplicator = 0.05;
+
     QChartView*     pChartView;
     QListWidget*    pListWidgetDiagrams;
     QListWidget*    pListWidgetStatus;
@@ -53,18 +55,18 @@ public:
 
     std::vector<DiagramSpecialized> diagram_container;
 
-    GuiWindow(QWidget *parent = nullptr) : QWidget(parent) {}
+    MainWindow(QWidget *parent = nullptr) : QWidget(parent) {}
 
-    GuiWindow(const GuiWindow&  newGuiWindow) = delete;
-    GuiWindow(GuiWindow&& newGuiWindow) = delete;
+    MainWindow(const MainWindow&  newGuiWindow) = delete;
+    MainWindow(MainWindow&& newGuiWindow) = delete;
 
-    GuiWindow& operator=(const GuiWindow&  newGuiWindow) = delete;
-    GuiWindow& operator=(GuiWindow&& newGuiWindow) = delete;
+    MainWindow& operator=(const MainWindow&  newGuiWindow) = delete;
+    MainWindow& operator=(MainWindow&& newGuiWindow) = delete;
 
     void SetSizes(void);
 };
 
-    Q_DECLARE_METATYPE(std::size_t)
+Q_DECLARE_METATYPE(std::size_t)
 
 class Gui
 {
@@ -72,13 +74,15 @@ private:
     bool is_running = false;
     std::mutex mutex;
     QApplication QtApplication;
-    GuiWindow window;
+    MainWindow main_window;
     static int argc_value;
     static char** argv_value;
 
     Gui();
 
 public:
+    static constexpr std::size_t report_date_and_time_string_size = 10;
+
     Gui(const Gui&  newGui) = delete;
     Gui(Gui&& newGui) = delete;
 
@@ -99,7 +103,7 @@ public:
 
     void Run(void);
     bool IsRunning(void);
-    void AddToDiagramList(DiagramSpecialized& diagram);
+    void AddToDiagramList(DiagramSpecialized&& diagram);
     void ReportStatus(const std::string& message);
 };
 

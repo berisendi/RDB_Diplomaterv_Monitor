@@ -7,42 +7,110 @@
 
 #include "gui.hpp"
 
+
 int Gui::argc_value = 1;
 char* default_argv_value = ((char*)"");
 char** Gui::argv_value = &default_argv_value;
 
-void GuiWindow::slotDisplayDiagram(std::size_t index)
+
+void MainWindow::slotDisplayDiagram(std::size_t index)
 {
+    // Check whether the diagram exists
     if(index < diagram_container.size())
     {
+        // Accessing the requested diagram from the
         DiagramSpecialized& diagram_to_display = diagram_container[index];
 
-        auto old_chart = pChartView->chart();
-        if(!old_chart)
+        // Accessing the current pChart from the pChartView
+        // and deleting it if there was one previously because we will add a new one with the new data
+        auto pChart = pChartView->chart();
+        if(!pChart)
         {
-            delete old_chart;
+            delete pChart;
         }
-        auto new_chart = new QChart();
+        pChart = new QChart();
 
+        // Setting the title with the Diagram name
+        pChart->setTitle(QString::fromStdString(diagram_to_display.GetTitle()));
+        // Hiding the legend because the data lines will be recognisable from their Y axis
+        pChart->legend()->hide();
+        // Creating the X axis, giving it a title and addig it to the chart. The ranges will only be set after analyzing the data points.
+        auto pXAxis = new QValueAxis;
+        pXAxis->setTitleText(QString::fromStdString(diagram_to_display.GetAxisXTitle()));
+        pChart->addAxis(pXAxis, Qt::AlignBottom);
+
+        // We will add every DataLine of the Diagram to the chart
         DataIndexType number_of_data_lines = diagram_to_display.GetTheNumberOfDataLines();
+        // Variables to store the min/max X axis values
+        DataPointType x_axis_minimum_value = 0;
+        DataPointType x_axis_maximum_value = 0;
+
         for(DataIndexType data_line_counter = 0; data_line_counter < number_of_data_lines; data_line_counter++)
         {
-            auto myLine = new QLineSeries();
-            myLine->setName(QString::fromStdString(diagram_to_display.GetDataLineTitle(data_line_counter)));
+            // Creating a line series and filling it with the data that needs to be displayed
+            auto pLineSeries = new QLineSeries();
+            // Setting the title with the current DataLine name
+            pLineSeries->setName(QString::fromStdString(diagram_to_display.GetDataLineTitle(data_line_counter)));
+            // Setting the data with the DataPoints of the DataLine
             DataIndexType number_of_data_points = diagram_to_display.GetTheNumberOfDataPoints(data_line_counter);
+            // Variables to store the min/max Y axis values
+            DataPointType y_axis_minimum_value = 0;
+            DataPointType y_axis_maximum_value = 0;
+
             for(DataIndexType data_point_counter = 0; data_point_counter < number_of_data_points; data_point_counter++)
             {
-                auto temp_data_point = diagram_to_display.GetDataPoint(data_line_counter, data_point_counter);
-                myLine->append(temp_data_point.GetX(), temp_data_point.GetY());
+                auto data_point = diagram_to_display.GetDataPoint(data_line_counter, data_point_counter);
+                pLineSeries->append(data_point.GetX(), data_point.GetY());
+
+                // Updating the min/max axis values
+                if(data_point.GetX() < x_axis_minimum_value)
+                {
+                    x_axis_minimum_value = data_point.GetX();
+                }
+                if(x_axis_maximum_value < data_point.GetX())
+                {
+                    x_axis_maximum_value = data_point.GetX();
+                }
+                if(data_point.GetY() < y_axis_minimum_value)
+                {
+                    y_axis_minimum_value = data_point.GetY();
+                }
+                if(y_axis_maximum_value < data_point.GetY())
+                {
+                    y_axis_maximum_value = data_point.GetY();
+                }
             }
-            new_chart->addSeries(myLine);
+
+            // Adding the line series to the chart
+            pChart->addSeries(pLineSeries);
+            auto pYAxis = new QValueAxis;
+            pYAxis->setTitleText(pLineSeries->name());
+            qreal y_axis_range_minimum = y_axis_minimum_value - (std::abs(y_axis_minimum_value) * y_axis_range_multiplicator);
+            qreal y_axis_range_maximum = y_axis_maximum_value + (std::abs(y_axis_maximum_value) * y_axis_range_multiplicator);
+            pYAxis->setTickCount(5);
+            pYAxis->setMinorTickCount(0);
+            pYAxis->setRange(y_axis_range_minimum, y_axis_range_maximum);
+            pYAxis->setTitleBrush(pLineSeries->pen().color());
+            pChart->addAxis(pYAxis, Qt::AlignLeft);
+            pLineSeries->attachAxis(pXAxis);
+            pLineSeries->attachAxis(pYAxis);
         }
-        new_chart->setTitle(QString::fromStdString(diagram_to_display.GetTitle()));
-        pChartView->setChart(new_chart);
+
+        // Setting up the X axis
+        pXAxis->setRange(x_axis_minimum_value, x_axis_maximum_value);
+        // Adding the chart to the chart view
+        pChartView->setChart(pChart);
+    }
+    else
+    {
+        // Then we will throw an exception because this case should never occur
+        std::string errorMessage = "The indexed Diagram does not exist in the GuiWindow::diagram_container: /n Requested index: ";
+        errorMessage += std::to_string(index);
+        throw errorMessage;
     }
 }
 
-void GuiWindow::slotAddToDiagramList(std::size_t index)
+void MainWindow::slotAddToDiagramList(std::size_t index)
 {
     if(index < diagram_container.size())
     {
@@ -57,19 +125,19 @@ void GuiWindow::slotAddToDiagramList(std::size_t index)
     }
 }
 
-void GuiWindow::slotReportStatus(std::string message)
+void MainWindow::slotReportStatus(std::string message)
 {
     auto pListWidgetItem = new QListWidgetItem();
     pListWidgetItem->setText(QString::fromStdString(message));
     pListWidgetStatus->insertItem(0, pListWidgetItem);
 }
 
-void GuiWindow::slotListSelectionChanged(void)
+void MainWindow::slotListSelectionChanged(void)
 {
     emit slotDisplayDiagram(pListWidgetDiagrams->currentRow());
 }
 
-void GuiWindow::slotPushButtonWasClicked(void)
+void MainWindow::slotPushButtonWasClicked(void)
 {
     if(!SerialPort::GetInstance().IsOpen())
     {
@@ -100,8 +168,8 @@ void GuiWindow::slotPushButtonWasClicked(void)
         }
     }
 }
-
-void GuiWindow::SetSizes(void)
+#warning "The magic numbers!!!"
+void MainWindow::SetSizes(void)
 {
     setMinimumSize(500, 500);
     int window_width = size().width();
@@ -126,56 +194,84 @@ void GuiWindow::SetSizes(void)
 
 ///---------------------------------------------------------------------------------------------------------------------------------------------///
 
-Gui::Gui() : QtApplication(argc_value, argv_value), window()
+Gui::Gui() : QtApplication(argc_value, argv_value), main_window()
 {
-    window.pChartView = new QChartView(&window);
-    window.pChartView->setRenderHint(QPainter::Antialiasing);
-    window.pChartView->setRubberBand(QChartView::HorizontalRubberBand);
+    // Adding the object to the main window that will display the charts with anti-aliasing and the zooming turned off
+    main_window.pChartView = new QChartView(&main_window);
+    main_window.pChartView->setRenderHint(QPainter::Antialiasing);
+    main_window.pChartView->setRubberBand(QChartView::NoRubberBand);
 
-    window.pListWidgetDiagrams = new QListWidget(&window);
+    // Adding the object to the main window that will list the processed diagrams to be selected to display
+    main_window.pListWidgetDiagrams = new QListWidget(&main_window);
 
-    window.pListWidgetStatus = new QListWidget(&window);
+    // Adding the object to the main window that will list the status messages
+    main_window.pListWidgetStatus = new QListWidget(&main_window);
 
-    window.pLineEdit = new QLineEdit((SERIAL_PORT_DEFAULT_DEVICE_NAME), &window);
+    // Adding the object to where the user can enter which serial port will be opened
+    main_window.pLineEdit = new QLineEdit((SERIAL_PORT_DEFAULT_DEVICE_NAME), &main_window);
 
-    window.pPushButton= new QPushButton("Open Serial Port", &window);
+    // Adding the object with which the user can open and close the serial port
+    main_window.pPushButton = new QPushButton("Open Serial Port", &main_window);
 
-    window.setWindowTitle(QString::fromStdString((APPLICATION_NAME)));
-    window.showMaximized();
+    // Setting the title of the main window and showing it maximized
+    main_window.setWindowTitle(QString::fromStdString((APPLICATION_NAME)));
+    main_window.showMaximized();
 }
 
 void Gui::Run(void)
 {
+    // Registering the types that are used in the signal and slot function prototypes
     qRegisterMetaType<std::size_t>("std::size_t");
     qRegisterMetaType<std::string>("std::string");
 
-    QObject::connect(&window, SIGNAL(signalDisplayDiagram(std::size_t)), &window, SLOT(slotDisplayDiagram(std::size_t)));
-    QObject::connect(&window, SIGNAL(signalAddToDiagramList(std::size_t)), &window, SLOT(slotAddToDiagramList(std::size_t)));
-    QObject::connect(&window, SIGNAL(signalReportStatus(std::string)), &window, SLOT(slotReportStatus(std::string)));
-    QObject::connect(window.pListWidgetDiagrams, SIGNAL(itemSelectionChanged()), &window, SLOT(slotListSelectionChanged()));
-    QObject::connect(window.pPushButton, SIGNAL(clicked()), &window, SLOT(slotPushButtonWasClicked()));
+    // Registering the connections between the signals and the slots
+    QObject::connect(&main_window, SIGNAL(signalDisplayDiagram(std::size_t)), &main_window, SLOT(slotDisplayDiagram(std::size_t)));
+    QObject::connect(&main_window, SIGNAL(signalAddToDiagramList(std::size_t)), &main_window, SLOT(slotAddToDiagramList(std::size_t)));
+    QObject::connect(&main_window, SIGNAL(signalReportStatus(std::string)), &main_window, SLOT(slotReportStatus(std::string)));
+    QObject::connect(main_window.pListWidgetDiagrams, SIGNAL(itemSelectionChanged()), &main_window, SLOT(slotListSelectionChanged()));
+    QObject::connect(main_window.pPushButton, SIGNAL(clicked()), &main_window, SLOT(slotPushButtonWasClicked()));
 
+    // Running the GUI
     is_running = true;
     QtApplication.exec();
 }
 
 bool Gui::IsRunning(void)
 {
+#warning "The way we are checking whether the GUI is running or not is not really good, this part needs to be reworked."
     return is_running;
 }
 
-void Gui::AddToDiagramList(DiagramSpecialized& diagram)
+void Gui::AddToDiagramList(DiagramSpecialized&& diagram)
 {
     std::lock_guard<std::mutex> lock(mutex);
 
-    window.diagram_container.push_back(diagram);
-    emit window.signalAddToDiagramList(window.diagram_container.size() - 1);
+    // Adding the diagram to the container that stores them for the GUI
+    main_window.diagram_container.emplace_back(diagram);
+
+    // Emitting a signal to add this diagram to the end of the diagram list
+    emit main_window.signalAddToDiagramList(main_window.diagram_container.size() - 1);
 }
 
 void Gui::ReportStatus(const std::string& message)
 {
-#warning "There is a new line at the end of the time string. Also the Date is not important in this string"
-    auto current_date_and_time = std::time(0);
-    std::string complete_message = std::string(ctime(&current_date_and_time)) + " - " + message;
-    emit window.signalReportStatus(complete_message);
+#warning "this is not thread safe like this ..."
+
+    time_t rawtime;
+    tm* timeinfo;
+    std::string date_and_time_string;
+
+    // Getting the current time
+    time(&rawtime);
+    timeinfo = localtime(&rawtime);
+
+    // Resizing the string containing the current time to an appropriate size
+    date_and_time_string.resize(report_date_and_time_string_size);
+
+    // Assembling the status message from the time and the input text
+    strftime(&date_and_time_string[0], date_and_time_string.size(), "%T", timeinfo);
+    std::string complete_message = date_and_time_string + " - " + message;
+
+    // Emitting the signal
+    emit main_window.signalReportStatus(complete_message);
 }

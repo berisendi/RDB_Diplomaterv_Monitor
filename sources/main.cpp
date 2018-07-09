@@ -23,25 +23,34 @@
 #include "serial_port.hpp"
 #include "data_processor.hpp"
 
+#warning "The exception handling needs to be solved overall the program..."
+
 std::atomic_bool shutdown_worker_thread;
+
+
 
 void WorkerThread(void)
 {
     while(!shutdown_worker_thread)
     {
+        while(!Gui::GetInstance().IsRunning());
+
         if(SerialPort::GetInstance().IsOpen())
         {
             auto received_data = SerialPort::GetInstance().ReceiveMeasurementData();
             if(received_data)
             {
-                auto assembled_diagram = DataProcessor::GetInstance().ProcessData("SerialPort", *received_data);
-                if(assembled_diagram)
+                auto diagram_container = DataProcessor::GetInstance().ProcessData("SerialPort", *received_data);
+                if(!diagram_container.empty())
                 {
-                    Gui::GetInstance().AddToDiagramList(*assembled_diagram);
+                    for(auto &i : diagram_container)
+                    {
+                        Gui::GetInstance().AddToDiagramList(std::move(*i.release()));
+                    }
                 }
                 else
                 {
-                    std::cerr << "Empty assembled_diagram..." << std::endl;
+                    std::cerr << "We could not assemble any diagram from the input data..." << std::endl;
                 }
             }
         }
@@ -68,5 +77,5 @@ int main(int argc, char **argv)
 
     std::cout << "The End." << std::endl;
     return EXIT_SUCCESS;
-#warning "Linux: The program has unexpectedly finished. The process was ended forcefully."
+#warning "Linux: The program has unexpectedly finished. The process was ended forcefully. This is probably because the Gui module has memory leak...check it later with Valgrind!"
 }
