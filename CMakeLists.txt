@@ -30,8 +30,10 @@ set(CMAKE_AUTOMOC ON)
 # Looking for Boost
 find_package(Boost COMPONENTS system REQUIRED)
 
-# Setting up the compiler flags
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0 -g -std=c++14 -pthread")
+# Setting up the compiler flags (the C++ version needs to be set separately because of a Qt bug)
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0 -g -pthread")
+message(STATUS "The used compiler flags aresud: ${CMAKE_CXX_FLAGS}")
 
 # Adding the subdirectories
 add_subdirectory(sources)
