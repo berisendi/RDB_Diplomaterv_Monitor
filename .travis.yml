@@ -52,4 +52,5 @@ script:
 
 after_success:
   # Sending the coverage data to Coveralls
-  - coveralls --verbose --root .. --include "application/" --exclude "tests/" --gcov-options '\-lp'
+  # - coveralls --verbose --root .. --include "application/" --exclude "tests/" --gcov-options '\-lp'
+  - coveralls --verbose --root .. --gcov-options '\-lp'
